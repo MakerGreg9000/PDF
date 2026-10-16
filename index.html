@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>PDF Ninja</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PDF Ninja">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+</head>
+<body>
+<style>
+/* Layout: one-screen editor. Slim top bar, formatting rail, a paper sheet that scrolls, a status strip. */
+:root{
+  --bg:#f3efe6; --paper:#fffdf8; --fg:#1f2a2e; --muted:#5d6b70; --line:#d9d2c3;
+  --accent:#1f6f8b; --accent-ink:#ffffff; --rail:#e9e3d6; --ok:#2e7d4f; --warn:#a85d1a; --err:#b23a3a;
+  --display:"Newsreader",Georgia,"Times New Roman",serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#171b1d; --paper:#22282b; --fg:#e8e4da; --muted:#a3aba9; --line:#3a4246;
+  --accent:#6fbdd6; --accent-ink:#0f1a1f; --rail:#1e2426; --ok:#6fc492; --warn:#e3a05d; --err:#e07a7a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171b1d; --paper:#22282b; --fg:#e8e4da; --muted:#a3aba9; --line:#3a4246;
+  --accent:#6fbdd6; --accent-ink:#0f1a1f; --rail:#1e2426; --ok:#6fc492; --warn:#e3a05d; --err:#e07a7a; color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);display:flex;flex-direction:column}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,[contenteditable]:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--rail)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.01em;line-height:1}
+.brand .logo{border-radius:8px;flex:none}
+.brand small{display:block;font:500 11px/1.2 var(--body);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
+.spacer{flex:1}
+.btn{padding:8px 14px;border-radius:6px;border:1px solid var(--line);background:var(--paper);font-weight:500;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.tools{display:flex;gap:4px;flex-wrap:wrap;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--rail)}
+.tools button{min-width:36px;height:34px;padding:0 10px;border-radius:5px;border:1px solid transparent}
+@media (hover:hover){.tools button:hover{border-color:var(--line);background:var(--paper)}}
+.tools .grp{display:flex;gap:4px}
+.tools .sep{width:1px;background:var(--line);margin:4px 4px}
+.tools b{font-weight:700}.tools i{font-style:italic}.tools u{text-decoration:underline}
+.sheetwrap{flex:1;min-height:0;overflow:auto;padding-block:18px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet{max-width:720px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:3px;box-shadow:0 1px 0 rgba(0,0,0,.04),0 12px 30px -18px rgba(0,0,0,.35);padding:clamp(20px,5vw,56px);min-height:60vh;font:16px/1.6 var(--body)}
+.sheet:empty::before{content:attr(data-placeholder);color:var(--muted)}
+.sheet h1{font-family:var(--display);font-size:2em;line-height:1.15;margin:.4em 0 .3em;text-wrap:balance}
+.sheet h2{font-family:var(--display);font-size:1.5em;line-height:1.2;margin:.8em 0 .3em}
+.sheet h3{font-size:1.15em;margin:.8em 0 .2em}
+.sheet p{margin:0 0 .75em}.sheet ul,.sheet ol{margin:0 0 .75em;padding-left:1.4em}
+.sheet table{border-collapse:collapse;margin:0 0 .75em;max-width:100%}.sheet td,.sheet th{border:1px solid var(--line);padding:4px 8px;vertical-align:top}
+.sheet img{max-width:100%;height:auto}
+.sheet blockquote{margin:0 0 .75em;padding-left:1em;border-left:3px solid var(--line);color:var(--muted)}
+.status{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-top:1px solid var(--line);background:var(--rail);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.status .msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status .msg.ok{color:var(--ok)}.status .msg.err{color:var(--err)}.status .msg.warn{color:var(--warn)}
+.status .link{color:var(--accent);text-decoration:underline}
+dialog{margin-top:max(24px,env(safe-area-inset-top,0px));border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--fg);padding:0;max-width:min(92vw,460px);width:100%}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+.dlg{padding:20px 22px;display:grid;gap:12px}
+.dlg h2{font-family:var(--display);font-size:22px;margin:0;font-weight:600}
+.dlg p{margin:0;color:var(--muted);font-size:14px}
+.dlg ol{margin:0;padding-left:1.3em;font-size:14px;display:grid;gap:6px}
+.dlg .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.choice{display:grid;gap:8px}
+.choice button{display:flex;justify-content:space-between;gap:12px;text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.choice button span{color:var(--muted);font-size:13px}
+.choice button:hover{border-color:var(--accent)}
+input[type=text]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);width:100%}
+.hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:no-preference){.btn,.tools button{transition:background .12s,border-color .12s}}
+.actions{display:flex;gap:8px;align-items:center}
+@media (max-width:560px){.actions{width:100%}.actions .spacer{display:none}.actions .btn{flex:1;padding:8px 6px;text-align:center}}
+</style>
+
+<div class="bar">
+  <div class="brand"><svg class="logo" viewBox="0 0 1024 1024" width="34" height="34" aria-hidden="true"><rect width="1024" height="1024" rx="220" fill="#1d2b33"/><path d="M262 170h380l120 120v564H262z" fill="#fffdf8"/><path d="M642 170v120h120z" fill="#d9d2c3"/><rect x="262" y="430" width="500" height="130" fill="#c82e34"/><path d="M762 440l150-70-110 150z" fill="#c82e34"/><path d="M762 530l170 100-140-70z" fill="#aa2228"/><ellipse cx="420" cy="495" rx="46" ry="34" fill="#fffdf8"/><ellipse cx="604" cy="495" rx="46" ry="34" fill="#fffdf8"/><circle cx="420" cy="495" r="18" fill="#1d2b33"/><circle cx="604" cy="495" r="18" fill="#1d2b33"/></svg><span>PDF Ninja<small>Word &amp; PDF on iPhone</small></span></div>
+  <div class="spacer"></div>
+  <div class="actions">
+  <button class="btn" id="btnOpen">Open…</button>
+  <button class="btn" id="btnNew">New</button>
+  <button class="btn primary" id="btnSave">Save as…</button>
+  <button class="btn" id="btnInstall" title="Put PDF Ninja on your Home Screen">Install</button>
+  </div>
+  <input class="hidden-input" type="file" id="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+</div>
+<div class="tools" role="toolbar" aria-label="Formatting">
+  <span class="grp"><button data-cmd="undo" title="Undo">↶</button><button data-cmd="redo" title="Redo">↷</button><span class="sep"></span></span>
+  <span class="grp"><button data-cmd="bold" title="Bold"><b>B</b></button><button data-cmd="italic" title="Italic"><i>I</i></button><button data-cmd="underline" title="Underline"><u>U</u></button><span class="sep"></span></span>
+  <span class="grp"><button data-block="h1" title="Title">H1</button><button data-block="h2" title="Heading">H2</button><button data-block="h3" title="Subheading">H3</button><button data-block="p" title="Body text">¶</button><span class="sep"></span></span>
+  <span class="grp"><button data-cmd="insertUnorderedList" title="Bulleted list">•≡</button><button data-cmd="insertOrderedList" title="Numbered list">1≡</button><span class="sep"></span></span>
+  <span class="grp"><button data-cmd="removeFormat" title="Clear formatting">Tx</button></span>
+</div>
+<div class="sheetwrap"><div class="sheet" id="sheet" contenteditable="true" spellcheck="true" data-placeholder="Open a .docx or .pdf, or start typing."></div></div>
+<div class="status"><span class="msg" id="msg">Ready. Open a Word or PDF file to begin.</span><span id="meta">0 words</span></div>
+
+<dialog id="saveDlg"><form method="dialog" class="dlg">
+  <h2>Save as…</h2>
+  <label for="fname">File name</label><input type="text" id="fname" value="Document" autocomplete="off">
+  <div class="choice">
+    <button type="submit" value="docx">Word document <span>.docx</span></button>
+    <button type="submit" value="pdf">PDF <span>.pdf, A4</span></button>
+  </div>
+  <div class="row"><button type="submit" value="cancel" class="btn">Cancel</button></div>
+</form></dialog>
+
+<dialog id="installDlg"><div class="dlg">
+  <h2>Put it on your Home Screen</h2>
+  <p>PDF Ninja runs in Safari. Adding it to the Home Screen gives it an icon that opens the editor full screen, like any other app.</p>
+  <ol>
+    <li>Open this page in Safari on your iPhone or iPad.</li>
+    <li>Tap the Share button (the square with an arrow).</li>
+    <li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+  </ol>
+  <p>Files you open come from the Files app, iCloud Drive, or any app that shares a document to Safari. Saved files go through the share sheet to Files, Mail, or another app.</p>
+  <div class="row"><button class="btn primary" id="installOk">Got it</button></div>
+</div></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const sheet=$("#sheet"), msg=$("#msg"), meta=$("#meta"), fileIn=$("#file");
+const saveDlg=$("#saveDlg"), installDlg=$("#installDlg"), fname=$("#fname");
+let docName="Document", downloads=null, busy=false;
+
+function say(t,kind){msg.textContent=t;msg.className="msg"+(kind?" "+kind:"");}
+function words(){const t=sheet.innerText||"";const n=(t.match(/\S+/g)||[]).length;meta.textContent=n+(n===1?" word":" words");}
+sheet.addEventListener("input",()=>{if(!sheet.textContent.trim()&&!sheet.querySelector("img"))sheet.innerHTML="";words();});
+
+// ---- Capability: file saving through the viewer ----
+if(window.claude&&window.claude.use){window.claude.use("downloads").then(d=>{downloads=d;}).catch(()=>{});}
+
+async function deliver(filename,blob){
+  if(downloads){
+    try{await downloads.save({filename,data:blob});say("Saved "+filename,"ok");return;}
+    catch(e){
+      if(e&&e.code==="declined"){say("Save cancelled.");return;}
+      if(e&&e.code==="rate_limited"){say("A save prompt is already open. Try again in a moment.","warn");return;}
+      if(e&&e.code!=="unavailable"&&e.code!=="not_granted"){say("Could not save: "+(e.message||e.code),"err");return;}
+    }
+  }
+  // Outside the viewer (a saved copy of this page) a plain download works.
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+  say("Download started: "+filename+". If nothing appeared, open this page in Safari and try again.","ok");
+}
+
+// ---- Toolbar ----
+let lastRange=null;
+document.addEventListener("selectionchange",()=>{const s=document.getSelection();if(s&&s.rangeCount&&sheet.contains(s.anchorNode))lastRange=s.getRangeAt(0).cloneRange();});
+document.querySelectorAll(".tools button").forEach(b=>{
+  const run=()=>{
+    const s=document.getSelection();
+    if(!s.rangeCount||!sheet.contains(s.anchorNode)){sheet.focus();if(lastRange){s.removeAllRanges();s.addRange(lastRange);}}
+    if(b.dataset.cmd) document.execCommand(b.dataset.cmd,false,null);
+    else if(b.dataset.block) document.execCommand("formatBlock",false,b.dataset.block);
+    words();
+  };
+  b.addEventListener("mousedown",e=>e.preventDefault());
+  b.addEventListener("touchend",e=>{e.preventDefault();run();},{passive:false});
+  b.addEventListener("click",run);
+});
+
+// ---- Open ----
+$("#btnOpen").addEventListener("click",()=>fileIn.click());
+$("#btnNew").addEventListener("click",()=>{sheet.innerHTML="";docName="Document";words();say("New document.");sheet.focus();});
+fileIn.addEventListener("change",async()=>{const f=fileIn.files[0];fileIn.value="";if(f)await openFile(f);});
+sheet.addEventListener("drop",async e=>{const f=e.dataTransfer&&e.dataTransfer.files[0];if(f&&/\.(docx|pdf)$/i.test(f.name)){e.preventDefault();await openFile(f);}});
+
+async function openFile(f){
+  if(busy){say("Still working on the previous file…","warn");return;}busy=true;
+  try{
+    say("Opening "+f.name+"…");
+    const buf=await f.arrayBuffer();
+    const newName=f.name.replace(/\.(docx|pdf)$/i,"")||"Document";
+    if(/\.docx$/i.test(f.name)){
+      if(!window.mammoth)throw new Error("The Word reader did not load. Check your connection and reload.");
+      const r=await mammoth.convertToHtml({arrayBuffer:buf},{styleMap:["p[style-name='Title'] => h1:fresh","p[style-name='Subtitle'] => h3:fresh","u => u"]});
+      sheet.innerHTML=r.value||"<p></p>";
+      say("Opened "+f.name+(r.messages.length?" (some formatting was simplified)":""),"ok");
+    }else if(/\.pdf$/i.test(f.name)){
+      if(!window.pdfjsLib)throw new Error("The PDF reader did not load. Check your connection and reload.");
+      sheet.innerHTML=await pdfToHtml(buf);
+      say("Opened "+f.name+". Text was extracted; layout and images are not kept.","ok");
+    }else throw new Error("PDF Ninja opens .docx and .pdf files.");
+    docName=newName;words();sheet.scrollIntoView({block:"start"});
+  }catch(e){say(String(e.message||e),"err");}
+  finally{busy=false;}
+}
+
+// ---- PDF -> editable HTML (text extraction, grouped into lines, columns and paragraphs) ----
+async function pdfToHtml(buf){
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const task=pdfjsLib.getDocument({data:buf});
+  // A worker that never answers (blocked network, CSP) would otherwise leave the app stuck on "Opening…".
+  let pdf;
+  try{pdf=await Promise.race([task.promise,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),20000))]);}
+  catch(e){
+    if(e&&e.name==="PasswordException")throw new Error("This PDF is password-protected. Remove the password first.");
+    throw new Error(/fake worker|timeout|Cannot load script/i.test(String(e&&e.message))?"The PDF reader could not be fetched. Reload the page when online.":"Could not read this PDF: "+(e&&e.message||e));
+  }
+  try{
+    const all=[];   // reading-ordered lines across the whole document: {y,size,text,bold,page}
+    for(let p=1;p<=pdf.numPages;p++){
+      say("Reading page "+p+" of "+pdf.numPages+"…");
+      const page=await pdf.getPage(p);
+      await page.getOperatorList();   // loads the fonts into page.commonObjs so weight can be read (textContent.fontName is only an id like "g_d0_f1")
+      const tc=await page.getTextContent();
+      const fontBold=n=>{try{const f=page.commonObjs.has(n)?page.commonObjs.get(n):null;return !!(f&&(f.bold||f.black||/bold|black|heavy|semibold/i.test(f.name||"")));}catch(e){return false;}};
+      const lines=[];
+      for(const it of tc.items){
+        if(!("str" in it))continue;
+        const y=it.transform[5], x=it.transform[4], size=Math.hypot(it.transform[0],it.transform[1])||10;
+        let L=lines.find(l=>Math.abs(l.y-y)<Math.max(l.size,size)*0.5);   // 0.5 of the larger size so a raised superscript/footnote mark stays on its line
+        if(!L){L={y,size,parts:[]};lines.push(L);}
+        L.size=Math.max(L.size,size);L.parts.push({x,x2:x+(it.width||0),str:it.str,bold:fontBold(it.fontName)});
+      }
+      lines.sort((a,b)=>b.y-a.y);
+      // Split each line into segments at large horizontal gaps (columns, table cells), inserting a space at word-sized gaps.
+      const segs=[];
+      for(const L of lines){
+        L.parts.sort((a,b)=>a.x-b.x);
+        let cur=null;
+        for(const q of L.parts){
+          const gap=cur?q.x-cur.x2:0;
+          if(!cur||gap>L.size*2){cur={y:L.y,size:L.size,x0:q.x,x2:q.x2,text:"",parts:[]};segs.push(cur);}
+          else if(gap>L.size*0.15&&!/\s$/.test(cur.text)&&!/^\s/.test(q.str))cur.text+=" ";
+          cur.text+=q.str;cur.x2=Math.max(cur.x2,q.x2);cur.parts.push(q);
+        }
+      }
+      for(const s of segs){s.text=s.text.replace(/\s+/g," ").trim();s.bold=s.parts.every(q=>q.bold||!q.str.trim());s.gapTo=null;}
+      const nonEmpty=segs.filter(s=>s.text);
+      // Column detection: if many lines share a gap at about the same x, read the left part of the page before the right part.
+      const mids=[];
+      for(const L of lines){const ss=nonEmpty.filter(s=>s.y===L.y).sort((a,b)=>a.x0-b.x0);for(let i=1;i<ss.length;i++)mids.push((ss[i-1].x2+ss[i].x0)/2);}
+      let boundary=null;
+      if(mids.length>=Math.max(3,nonEmpty.length*0.3)){
+        mids.sort((a,b)=>a-b);let best=[];
+        for(let i=0;i<mids.length;i++){let j=i;while(j<mids.length&&mids[j]-mids[i]<20)j++;if(j-i>best.length)best=mids.slice(i,j);}
+        if(best.length>=Math.max(3,nonEmpty.length*0.3))boundary=best[Math.floor(best.length/2)];
+      }
+      const ordered=boundary===null?nonEmpty:[...nonEmpty.filter(s=>(s.x0+s.x2)/2<boundary),...nonEmpty.filter(s=>(s.x0+s.x2)/2>=boundary)];
+      for(const s of ordered)all.push(s);
+    }
+    if(!all.length)throw new Error("No text found in this PDF. It is probably a scanned document (pages are images), which PDF Ninja cannot read.");
+    // Body size: the font size carrying the most characters across the whole document (a page holding only a heading must not set its own body size).
+    const weight=new Map();for(const s of all){const k=Math.round(s.size*2)/2;weight.set(k,(weight.get(k)||0)+s.text.length);}
+    const body=[...weight.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+    const out=[];let para=null,prevY=null,prevSize=body;
+    const flush=()=>{if(para){out.push(para);para=null;}};
+    for(const L of all){
+      const gap=prevY===null?0:(prevY-L.y);
+      const heading=L.size>body*1.25||(L.bold&&L.text.length<80&&!/[.:;,]$/.test(L.text));
+      const bullet=/^[•·\-–▪◦]\s+/.test(L.text);
+      const newPara=!para||heading||bullet||gap>L.size*1.9||gap<0&&para.heading||Math.abs(L.size-prevSize)>1||para.heading;
+      if(newPara){flush();para={heading:heading?(L.size>body*1.6?"h1":"h2"):null,bullet,text:bullet?L.text.replace(/^[•·\-–▪◦]\s+/,""):L.text};}
+      else if(/\S-$/.test(para.text)&&/^[a-z]/.test(L.text))para.text=para.text.slice(0,-1)+L.text;   // soft hyphen at a line break: "arrange-" + "ment"
+      else para.text+=" "+L.text;
+      prevY=L.y;prevSize=L.size;
+    }
+    flush();
+    const esc=s=>s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+    let html="",inList=false;
+    for(const q of out){
+      if(q.bullet){if(!inList){html+="<ul>";inList=true;}html+="<li>"+esc(q.text)+"</li>";continue;}
+      if(inList){html+="</ul>";inList=false;}
+      html+=q.heading?"<"+q.heading+">"+esc(q.text)+"</"+q.heading+">":"<p>"+esc(q.text)+"</p>";
+    }
+    if(inList)html+="</ul>";
+    return html||"<p></p>";
+  }finally{pdf.destroy();}   // frees the worker thread; otherwise one Worker per opened PDF is left alive
+}
+
+// ---- Editor DOM -> block model (shared by both exporters) ----
+// block: {kind:'p'|'h1'|'h2'|'h3'|'li', list:'ul'|'ol'|null, index, runs:[{t,b,i,u}]}
+function blocks(){
+  const res=[];
+  const walkInline=(node,st,runs)=>{
+    for(const n of node.childNodes){
+      if(n.nodeType===3){runs.push({t:n.nodeValue.replace(/[\r\n\t]+/g," "),...st});continue;}
+      if(n.nodeType!==1)continue;
+      const tag=n.tagName.toLowerCase();
+      if(tag==="br"){runs.push({t:"\n",...st});continue;}
+      if(tag==="img"||tag==="ul"||tag==="ol")continue;
+      const s={...st};
+      if(tag==="b"||tag==="strong"||/^h[1-6]$/.test(tag))s.b=true;
+      if(tag==="i"||tag==="em")s.i=true;
+      if(tag==="u")s.u=true;
+      const fw=n.style&&n.style.fontWeight;if(fw==="bold"||+fw>=600)s.b=true;
+      if(n.style&&n.style.fontStyle==="italic")s.i=true;
+      if(n.style&&/underline/.test(n.style.textDecoration||""))s.u=true;
+      walkInline(n,s,runs);
+    }
+  };
+  let listN=0;
+  const trimBr=runs=>{while(runs.length&&runs[runs.length-1].t==="\n")runs.pop();return runs;};
+  const walkBlock=(node,ctx)=>{
+    let pend=null;
+    const flush=()=>{if(pend&&pend.some(r=>r.t.trim()))res.push({kind:"p",list:null,runs:trimBr(pend)});pend=null;};
+    const inline=n=>{if(!pend)pend=[];walkInline({childNodes:[n]},{},pend);};
+    for(const n of node.childNodes){
+      if(n.nodeType===3){inline(n);continue;}
+      if(n.nodeType!==1)continue;
+      const tag=n.tagName.toLowerCase();
+      if(tag==="ul"||tag==="ol"){flush();const id=++listN;let i=0;for(const li of n.children){if(li.tagName.toLowerCase()!=="li")continue;const runs=[];walkInline(li,{},runs);res.push({kind:"li",list:tag,listId:id,index:++i,runs:trimBr(runs)});for(const x of li.children)if(/^(ul|ol)$/i.test(x.tagName))walkBlock({childNodes:[x]},ctx);}continue;}
+      if(/^h[1-3]$/.test(tag)){flush();const runs=[];walkInline(n,{b:true},runs);res.push({kind:tag,list:null,runs:trimBr(runs)});continue;}
+      if(tag==="p"||tag==="div"||tag==="blockquote"||tag==="li"||tag==="section"){
+        flush();
+        const hasBlockChild=[...n.children].some(c=>/^(p|div|h[1-6]|ul|ol|table|blockquote)$/i.test(c.tagName));
+        if(hasBlockChild){walkBlock(n,ctx);continue;}
+        const runs=[];walkInline(n,{},runs);res.push({kind:"p",list:null,runs:trimBr(runs)});continue;
+      }
+      if(tag==="table"){flush();for(const tr of n.querySelectorAll("tr")){const runs=[];let first=true;for(const td of tr.children){if(!first)runs.push({t:"   |   "});first=false;walkInline(td,{},runs);}res.push({kind:"p",list:null,runs:trimBr(runs)});}continue;}
+      if(tag==="img"||tag==="hr"){flush();continue;}
+      inline(n);
+    }
+    flush();
+  };
+  walkBlock(sheet,{});
+  // drop empty trailing paragraphs but keep deliberate blank lines in the middle
+  while(res.length&&!res[res.length-1].runs.some(r=>r.t.trim()))res.pop();
+  return res;
+}
+
+// ---- Export: Word ----
+async function toDocx(){
+  if(!window.docx)throw new Error("The Word writer did not load. Check your connection and reload.");
+  const D=window.docx;
+  const children=[];
+  for(const b of blocks()){
+    const runs=[];
+    for(const r of b.runs){
+      const pieces=r.t.split("\n");
+      pieces.forEach((pc,k)=>{if(k>0)runs.push(new D.TextRun({break:1}));if(pc)runs.push(new D.TextRun({text:pc,bold:!!r.b,italics:!!r.i,underline:r.u?{}:undefined}));});
+    }
+    const opts={children:runs};
+    if(b.kind==="h1")opts.heading=D.HeadingLevel.HEADING_1;
+    if(b.kind==="h2")opts.heading=D.HeadingLevel.HEADING_2;
+    if(b.kind==="h3")opts.heading=D.HeadingLevel.HEADING_3;
+    if(b.kind==="li"){if(b.list==="ul")opts.bullet={level:0};else opts.numbering={reference:"nums",level:0,instance:b.listId||0};}
+    if(b.kind==="p")opts.spacing={after:160};
+    children.push(new D.Paragraph(opts));
+  }
+  if(!children.length)children.push(new D.Paragraph({children:[new D.TextRun("")]}));
+  const doc=new D.Document({
+    creator:"PDF Ninja",
+    numbering:{config:[{reference:"nums",levels:[{level:0,format:D.LevelFormat.DECIMAL,text:"%1.",alignment:D.AlignmentType.START,style:{paragraph:{indent:{left:720,hanging:360}}}}]}]},
+    styles:{default:{document:{run:{font:"Calibri",size:22}}}},
+    sections:[{properties:{page:{size:{width:11906,height:16838}}},children}]
+  });
+  return await D.Packer.toBlob(doc);
+}
+
+// ---- Export: PDF (real text, A4, word-wrapped with mixed bold/italic) ----
+function toPdf(){
+  if(!window.jspdf)throw new Error("The PDF writer did not load. Check your connection and reload.");
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:"pt",format:"a4"});
+  const W=595.28,H=841.89,M=56,maxW=W-2*M,bottom=H-M;
+  let y=M;
+  const sizeOf={h1:22,h2:17,h3:13.5,p:11,li:11};
+  const style=r=>(r.b&&r.i)?"bolditalic":r.b?"bold":r.i?"italic":"normal";
+  const newPage=()=>{doc.addPage();y=M;};
+  doc.setFont("helvetica","normal");
+  for(const b of blocks()){
+    const size=sizeOf[b.kind]||11, lh=size*1.38;
+    const prefix=b.kind==="li"?(b.list==="ol"?b.index+".":"•"):null;
+    doc.setFontSize(size);doc.setFont("helvetica","normal");
+    const indent=prefix?Math.max(18,doc.getTextWidth(prefix)+8):0;
+    // tokenise runs into words, keeping styles
+    const toks=[];
+    for(const r of b.runs){const parts=r.t.split(/(\n|\s+)/);for(const p of parts){if(!p)continue;if(p==="\n")toks.push({br:true});else if(/^\s+$/.test(p))toks.push({sp:true,r});else toks.push({w:p,r});}}
+    if(!toks.length)toks.push({w:"",r:{}});
+    if(b.kind!=="p"&&b.kind!=="li")y+=size*0.5;
+    const lines=[[]];let lw=0;const avail=maxW-indent;
+    for(const t of toks){
+      if(t.br){lines.push([]);lw=0;continue;}
+      doc.setFontSize(size);doc.setFont("helvetica",style(t.r||{}));
+      const w=doc.getTextWidth(t.sp?" ":t.w);
+      if(t.sp){if(lw>0){lines[lines.length-1].push({w:" ",r:t.r,width:w});lw+=w;}continue;}
+      if(lw+w>avail&&lw>0){lines.push([]);lw=0;}
+      if(w>avail){ // longer than a whole line (a URL, say): break by characters
+        let chunk="";
+        for(const ch of t.w){if(chunk&&doc.getTextWidth(chunk+ch)>avail){lines[lines.length-1].push({w:chunk,r:t.r,width:doc.getTextWidth(chunk)});lines.push([]);chunk="";}chunk+=ch;}
+        const cw=doc.getTextWidth(chunk);lines[lines.length-1].push({w:chunk,r:t.r,width:cw});lw=cw;continue;
+      }
+      lines[lines.length-1].push({w:t.w,r:t.r,width:w});lw+=w;
+    }
+    let first=true;
+    for(const line of lines){
+      while(line.length&&line[line.length-1].w===" ")line.pop();
+      if(y+lh>bottom)newPage();
+      let x=M+indent;
+      if(first&&prefix){doc.setFontSize(size);doc.setFont("helvetica","normal");doc.text(prefix,M+2,y+size);}
+      for(const seg of line){
+        doc.setFontSize(size);doc.setFont("helvetica",style(seg.r||{}));
+        doc.text(seg.w,x,y+size);
+        if(seg.r&&seg.r.u){doc.setLineWidth(.6);doc.line(x,y+size+1.5,x+seg.width,y+size+1.5);}
+        x+=seg.width;
+      }
+      y+=lh;first=false;
+    }
+    y+=size*0.55;
+  }
+  return doc.output("blob");
+}
+
+// ---- Save flow ----
+$("#btnSave").addEventListener("click",()=>{fname.value=docName;saveDlg.returnValue="";saveDlg.showModal();});
+saveDlg.addEventListener("close",async()=>{
+  const choice=saveDlg.returnValue;
+  if(!choice||choice==="cancel")return;
+  const base=(fname.value||"Document").trim().replace(/[\\/:*?"<>|]+/g,"-")||"Document";
+  docName=base;
+  if(busy){say("Still working on the previous file…","warn");return;}busy=true;
+  try{
+    say("Building "+choice.toUpperCase()+"…");
+    const blob=choice==="docx"?await toDocx():toPdf();
+    await deliver(base+"."+choice,blob);
+  }catch(e){say(String(e.message||e),"err");}
+  finally{busy=false;}
+});
+
+// ---- Install help ----
+$("#btnInstall").addEventListener("click",()=>installDlg.showModal());
+$("#installOk").addEventListener("click",()=>installDlg.close());
+
+// Library load check, after the page settles.
+window.addEventListener("load",()=>{
+  const missing=[["mammoth","Word reader"],["pdfjsLib","PDF reader"],["docx","Word writer"],["jspdf","PDF writer"]].filter(([g])=>!window[g]).map(([,n])=>n);
+  if(missing.length)say("Not loaded: "+missing.join(", ")+". Reload when online.","warn");
+});
+words();
+})();
+</script>
+
+</body>
+</html>
